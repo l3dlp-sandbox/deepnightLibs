@@ -91,8 +91,9 @@ enum abstract ControllerType(Int) {
 class Controller<T:Int> {
 
 	/**
-		Create a new Controller instance using an existing **Int based Abstract Enum**.
+		Create a new Controller instance using an existing **Int-based Abstract Enum** that **can be casted to Int**.
 
+		Example:
 		```haxe
 		enum abstract MyGameActions(Int) to Int {
 			var MoveX;
@@ -661,16 +662,17 @@ class Controller<T:Int> {
 	/**
 		Return the first binding visual representation of given Action. If no binding is found, an empty h2d.Flow is returned.
 		@param action The action to lookup
-		@param ctrlType Optionally, only show the binding associated with the given controller type
+		@param ctrlType (Keyboard or Gamepad) Optionally, only show the binding associated with the given controller type
+		@param suffix specificy a suffix for the icon to use (ie. "tiny")
 		@param parent  Optional display object to add the icon to.
 	**/
-	public function getFirstBindindIconFor(action:T, ?ctrlType:ControllerType, ?parent:h2d.Object) : h2d.Flow {
+	public function getFirstBindindIconFor(action:T, ?ctrlType:ControllerType, ?suffix:String, ?parent:h2d.Object) : h2d.Flow {
 		if( !bindings.exists(action) || bindings.get(action).length==0 )
 			return new h2d.Flow(parent);
 
 		for( b in bindings.get(action) )
 			if( ctrlType==null || ctrlType==Keyboard && b.isKeyboard() || ctrlType==Gamepad && b.isGamepad() ) {
-				var f = b.getIcon();
+				var f = b.getIcon(suffix);
 				if( parent!=null )
 					parent.addChild(f);
 				return f;
@@ -687,14 +689,14 @@ class Controller<T:Int> {
 		@param ctrlType Optionally, only show bindings associated with the given controller type
 		@param parent  Optional display object to add the icon to.
 	**/
-	public function getAllBindindIconsFor(action:T, ?ctrlType:ControllerType) : Array<h2d.Flow> {
+	public function getAllBindindIconsFor(action:T, ?ctrlType:ControllerType, ?suffix:String) : Array<h2d.Flow> {
 		if( !bindings.exists(action) || bindings.get(action).length==0 )
 			return [];
 
 		var all = [];
 		for( b in bindings.get(action) )
 			if( ctrlType==null || ctrlType==Keyboard && b.isKeyboard() || ctrlType==Gamepad && b.isGamepad() )
-				all.push( b.getIcon() );
+				all.push( b.getIcon(suffix) );
 
 		return all;
 	}
@@ -719,6 +721,32 @@ class Controller<T:Int> {
 		return all;
 	}
 
+
+
+	public function getMouseButtonIcon(buttonIdx:Int, ?parent:h2d.Object) : h2d.Flow {
+		var f = new h2d.Flow(parent);
+		#if heaps_aseprite
+			var baseId = switch buttonIdx {
+				case 0: "mouseLeft";
+				case 1: "mouseRight";
+				case 2: "mouseMiddle";
+				case _: "mouse";
+			};
+			if( ICONS_LIB.exists(baseId) )
+				new h2d.Bitmap( ICONS_LIB.getTile(baseId), f );
+			else
+				new h2d.Bitmap( _errorTile(), f );
+		#else
+			var tf = new h2d.Text(hxd.res.DefaultFont.get(), f);
+			tf.text = switch buttonIdx {
+				case 0: "LMB";
+				case 1: "RMB";
+				case 2: "MMB";
+				case _: "MB"+buttonIdx;
+			}
+		#end
+		return f;
+	}
 
 
 	/**
@@ -808,7 +836,6 @@ class Controller<T:Int> {
 						f.paddingRight+=8;
 
 					case _:
-
 						tf.text = getKeyName(keyId).toUpperCase();
 				}
 				tf.textColor = 0x242234;
@@ -882,52 +909,52 @@ class InputBinding<T:Int> {
 	/**
 		Return the visual representation of this binding
 	**/
-	public function getIcon() : h2d.Flow {
+	public function getIcon(?suffix:String) : h2d.Flow {
 		var f = new h2d.Flow();
 		f.horizontalSpacing = 1;
 		f.verticalAlign = Middle;
 
 		if( isLStick && padNeg==null && signLimit!=0 ) {
 			// Left stick dir
-			signLimit>0 && isX ? input.getPadIcon(LSTICK_RIGHT, f)
-			: signLimit<0 && isX ? input.getPadIcon(LSTICK_LEFT, f)
-			: signLimit<0 && !isX ? input.getPadIcon(LSTICK_UP, f)
-			: input.getPadIcon(LSTICK_DOWN, f);
+			signLimit>0 && isX ? input.getPadIcon(LSTICK_RIGHT, suffix, f)
+			: signLimit<0 && isX ? input.getPadIcon(LSTICK_LEFT, suffix, f)
+			: signLimit<0 && !isX ? input.getPadIcon(LSTICK_UP, suffix, f)
+			: input.getPadIcon(LSTICK_DOWN, suffix, f);
 		}
 		if( !isLStick && padNeg==null && signLimit!=0 ) {
 			// Right stick dir
-			signLimit>0 && isX ? input.getPadIcon(RSTICK_RIGHT, f)
-			: signLimit<0 && isX ? input.getPadIcon(RSTICK_LEFT, f)
-			: signLimit<0 && !isX ? input.getPadIcon(RSTICK_UP, f)
-			: input.getPadIcon(RSTICK_DOWN, f);
+			signLimit>0 && isX ? input.getPadIcon(RSTICK_RIGHT, suffix, f)
+			: signLimit<0 && isX ? input.getPadIcon(RSTICK_LEFT, suffix, f)
+			: signLimit<0 && !isX ? input.getPadIcon(RSTICK_UP, suffix, f)
+			: input.getPadIcon(RSTICK_DOWN, suffix, f);
 		}
 		// Left stick axis
 		if( isLStick && signLimit==0 ) {
 			if( padNeg==null )
-				input.getPadIcon(isX ? LSTICK_X : LSTICK_Y, f);
+				input.getPadIcon(isX ? LSTICK_X : LSTICK_Y, suffix, f);
 			else {
-				input.getPadIcon(padNeg, f);
-				input.getPadIcon(padPos, f);
+				input.getPadIcon(padNeg, suffix, f);
+				input.getPadIcon(padPos, suffix, f);
 			}
 		}
 		// Right stick axis
 		if( isRStick && signLimit==0 ) {
 			if( padNeg==null )
-				input.getPadIcon(isX ? RSTICK_X : RSTICK_Y, f);
+				input.getPadIcon(isX ? RSTICK_X : RSTICK_Y, suffix, f);
 			else {
-				input.getPadIcon(padNeg, f);
-				input.getPadIcon(padPos, f);
+				input.getPadIcon(padNeg, suffix, f);
+				input.getPadIcon(padPos, suffix, f);
 			}
 		}
 
-		if( padButton!=null ) input.getPadIcon(padButton, f);
+		if( padButton!=null ) input.getPadIcon(padButton, suffix, f);
 		if( kbNeg>=0 ) input.getKeyboardIcon(kbNeg, f);
 		if( kbPos>=0 && kbPos!=kbNeg ) input.getKeyboardIcon(kbPos, f);
 
 		if( comboBindings.length>0 ) {
 			for(b in comboBindings) {
 				_addText("+",f);
-				f.addChild( b.getIcon() );
+				f.addChild( b.getIcon(suffix) );
 			}
 		}
 

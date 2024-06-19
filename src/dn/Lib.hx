@@ -563,7 +563,7 @@ class Lib {
 			});
 
 			p.createChildProcess( function(_) {
-				g.x = p.w()-w-2;
+				g.x = p.stageWid-w-2;
 				g.y = 2;
 				g.visible = !isFullscreen();
 			});
@@ -746,6 +746,31 @@ class Lib {
 	}
 	static inline function isConsonant(c:String) {
 		return c!=null && c.length>=1 && !VOWELS.exists( c.charAt(0).toLowerCase() ) && ( c>="a" && c<="z" || c>="A" && c<="Z" );
+	}
+
+	public static function groupArray<T:Dynamic>(arr:Array<T>) : Array<{ value:T, count:Int }> {
+		var out : Array<{ value:T, count:Int }> = [];
+		for(i in 0...arr.length) {
+			var v = arr[i];
+
+			// Check if already counted
+			var found = false;
+			for(e in out)
+				if( e.value==v) {
+					found = true;
+					break;
+				}
+			if( found )
+				continue;
+
+			// Count
+			var n = 1;
+			for(j in i+1...arr.length)
+				if( arr[j]==v )
+					n++;
+			out.push({ value:v, count:n });
+		}
+		return out;
 	}
 
 

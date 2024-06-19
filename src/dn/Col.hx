@@ -630,10 +630,12 @@ abstract Col(Int) from Int to Int {
 	/** Interpolate to given color, at % ratio **/
 	public inline function interpolate(to:Col, ratio:Float) : Col {
 		return
-			( M.round( M.lerp( ai, to.ai, ratio ) ) << 24 ) |
-			( M.round( M.lerp( ri, to.ri, ratio ) ) << 16 ) |
-			( M.round( M.lerp( gi, to.gi, ratio ) ) << 8 ) |
-			( M.round( M.lerp( bi, to.bi, ratio ) ) );
+			ratio<=0 ? this
+			: ratio>=1 ? to
+			:	( M.round( M.lerp( ai, to.ai, ratio ) ) << 24 ) |
+				( M.round( M.lerp( ri, to.ri, ratio ) ) << 16 ) |
+				( M.round( M.lerp( gi, to.gi, ratio ) ) << 8 ) |
+				( M.round( M.lerp( bi, to.bi, ratio ) ) );
 	}
 
 
@@ -668,8 +670,8 @@ abstract Col(Int) from Int to Int {
 		e.color.setColor( withAlpha(ratio) );
 	}
 
-	public inline function toTile() : h2d.Tile {
-		return h2d.Tile.fromColor(this);
+	public inline function toTile(wid=1, hei=1, alpha=1.0) : h2d.Tile {
+		return h2d.Tile.fromColor(withoutAlpha(), wid, hei, alpha);
 	}
 
 	/** Return a h3d.Matrix to colorize an object **/

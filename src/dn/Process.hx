@@ -83,6 +83,9 @@ class Process {
 	var children : FixedArray<Process>;
 	#end
 
+	public var stageWid(get,never) : Int;
+	public var stageHei(get,never) : Int;
+
 	/** Delayer allows for callbacks to be called in a future frame **/
 	public var delayer : dn.Delayer;
 
@@ -101,17 +104,11 @@ class Process {
 	var _fixedUpdateAccu = 0.;
 
 
-	// Optional graphic context
-	#if( heaps || h3d )
-		/** Graphic context, can be null **/
-		public var root : Null<h2d.Layers>;
-		public var engine(get,never) : h3d.Engine;
-	#elseif flash
-		/** Graphic context, can be null **/
-		public var root : Null<flash.display.Sprite>;
-		var pt0 : flash.geom.Point; // to reduce allocations
+	#if heaps
+	/** Optionnal graphic context **/
+	public var root : Null<h2d.Layers>;
+	public var engine(get,never) : h3d.Engine;
 	#end
-
 
 
 	public function new(?parent : Process) {
@@ -152,12 +149,9 @@ class Process {
 	function initOnceBeforeUpdate() {}
 
 
-	#if( heaps || flash )
+	#if heaps
 	/** Init graphic context **/
-	public function createRoot(
-		 #if heaps ?ctx:h2d.Object
-		 #elseif flash ?ctx:flash.display.Sprite #end
-	) {
+	public function createRoot(?ctx:h2d.Object) {
 		if( root!=null )
 			throw this+": root already created!";
 
@@ -167,14 +161,8 @@ class Process {
 			ctx = parent.root;
 		}
 
-		#if( heaps || h3d )
-			root = new h2d.Layers(ctx);
-			root.name = getDisplayName();
-		#elseif flash
-			root = new flash.display.Sprite();
-			ctx.addChild(root);
-			pt0 = new flash.geom.Point();
-		#end
+		root = new h2d.Layers(ctx);
+		root.name = getDisplayName();
 	}
 	#end
 
@@ -369,10 +357,10 @@ class Process {
 	// -----------------------------------------------------------------------
 	inline function get_itime() return Std.int(ftime);
 	inline function get_stime() return ftime/getDefaultFrameRate();
-	#if( heaps || h3d )
+	#if heaps
 	inline function get_engine() return h3d.Engine.getCurrent();
 	#end
-	inline function addAlpha(c:Int, ?a=1.0) : #if flash UInt #else Int #end {
+	inline function addAlpha(c:Int, ?a=1.0) : Int {
 		return Std.int(a*255)<<24 | c;
 	}
 	inline function rnd(min,max,?sign) return Lib.rnd(min,max,sign);
@@ -391,8 +379,6 @@ class Process {
 	function getDefaultFrameRate() : Int {
 		#if heaps
 			return M.round( hxd.Timer.wantedFPS );
-		#elseif flash
-			return flash.Lib.current.stage.frameRate;
 		#else
 			return 30; // N/A
 		#end
@@ -410,30 +396,35 @@ class Process {
 
 
 	/** Get graphical context width **/
-	public inline function w(){
+	@:noCompletion @:deprecated("Use stageWid variable instead")
+	public inline function w() return stageWid;
+
+	inline function get_stageWid(){
 		if( CUSTOM_STAGE_WIDTH > 0 )
 			return CUSTOM_STAGE_WIDTH;
+
 		#if heaps
-		return hxd.Window.getInstance().width;
-		#elseif (flash||openfl)
-		return flash.Lib.current.stage.stageWidth;
+			return hxd.Window.getInstance().width;
 		#else
-		return 1;
+			return 1;
 		#end
 	}
 
 	/** Get graphical context height **/
-	public inline function h(){
+	@:noCompletion @:deprecated("Use stageHei variable instead")
+	public inline function h() return stageHei;
+
+	inline function get_stageHei(){
 		if( CUSTOM_STAGE_HEIGHT > 0 )
 			return CUSTOM_STAGE_HEIGHT;
+
 		#if heaps
-		return hxd.Window.getInstance().height;
-		#elseif (flash||openfl)
-		return flash.Lib.current.stage.stageHeight;
+			return hxd.Window.getInstance().height;
 		#else
-		return 1;
+			return 1;
 		#end
 	}
+
 
 	inline function anyParentPaused() {
 		return parent!=null ? parent.isPaused() : false;
@@ -638,14 +629,9 @@ class Process {
 			ROOTS.remove(p);
 
 		// Graphic context
-		#if( heaps || flash )
-		if( p.root!=null ) {
-			#if( heaps || h3d )
+		#if heaps
+		if( p.root!=null )
 			p.root.remove();
-			#else
-			p.root.parent.removeChild(p.root);
-			#end
-		}
 		#end
 
 		// Callbacks
@@ -668,11 +654,8 @@ class Process {
 		p.delayer = null;
 		p.udelayer = null;
 		p.tw = null;
-		#if( heaps || h3d )
+		#if heaps
 		p.root = null;
-		#elseif flash
-		p.root = null;
-		p.pt0 = null;
 		#end
 	}
 
