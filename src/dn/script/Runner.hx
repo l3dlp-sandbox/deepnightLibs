@@ -59,6 +59,7 @@ class Runner {
 	var enums : Array<Enum<Dynamic>> = [];
 	var classes : Array<ExposedClass> = [];
 	var functions : Array<ExposedFunction> = [];
+	var consts : Array<{ name:String, value:Dynamic, ttype:hscript.Checker.TType }> = [];
 	var internalKeywords: Array<{ name:String, type:hscript.Checker.TType, ?instanceRef:Dynamic }> = [];
 
 	// If TRUE, throw errors instead of intercepeting them
@@ -107,6 +108,11 @@ class Runner {
 		addInternalKeyword("makeIterator_dynamic", _makeIteratorType(TDynamic), @:privateAccess interp.makeIterator);
 		addInternalKeyword("makeIterator_int", _makeIteratorType(TInt), @:privateAccess interp.makeIterator);
 		addInternalKeyword("out", TFun([{ name:"v", opt:false, t:TDynamic }], TVoid), forceOutput);
+
+		// Register Int based named-colors (Red, Green, Blue, etc)
+		var values = MacroTools.getAbstractEnumValues(Col.ColorEnum);
+		for(v in values)
+			addConst(v.name, v.value);
 	}
 
 
@@ -119,6 +125,7 @@ class Runner {
 		enums = null;
 		classes = null;
 		functions = null;
+		consts = null;
 		internalKeywords = null;
 
 		lastScriptStr = null;
@@ -145,7 +152,7 @@ class Runner {
 	}
 
 
-	function isKeyword(name:String) : Bool {
+	public function isKeyword(name:String) : Bool {
 		for( k in internalKeywords )
 			if( k.name==name )
 				return true;
@@ -264,6 +271,43 @@ class Runner {
 	}
 
 
+	public function addConst(name:String, value:Dynamic) {
+		// Check name validity
+		if( isKeyword(name) ) {
+			emitError('Cannot add const "$name": this name is already used as an internal keyword');
+			return;
+		}
+		if( hasConst(name) ) {
+			emitError('Cannot add const "$name": this name is already used as a const');
+			return;
+		}
+
+		// Check value type
+		var ttype : hscript.Checker.TType = switch Type.typeof(value) {
+			case TInt: TInt;
+			case TFloat: TFloat;
+			case TBool: TBool;
+			case _: null;
+		}
+		if( ttype==null ) {
+			emitError('Const "$name" has unsupported type: ${Type.typeof(value)}');
+			return;
+		}
+
+		// Register
+		consts.push({ name:name, value:value, ttype:ttype });
+		invalidateChecker();
+	}
+
+
+	public function hasConst(name:String) : Bool {
+		for( c in consts )
+			if( c.name==name )
+				return true;
+		return false;
+	}
+
+
 	public function exposeFunctionsByPrefix(classOrInst:Dynamic, prefix:String, keepPrefix:Bool) {
 		// Check class
 		var cl = switch Type.typeof(classOrInst) {
@@ -333,11 +377,20 @@ class Runner {
 	}
 
 	#if heaps
-	public function openDebug(ctx:h2d.Object) {
+	public function openDebugger(ctx:h2d.Object) {
 		if( debug==null )
 			debug = new dn.script.Debug(this, ctx);
 		return debug;
 	}
+
+	public function closeDebugger() {
+		if( debug!=null ) {
+			debug.destroy();
+			debug = null;
+		}
+	}
+
+	public inline function isDebuggerOpen() return debug!=null && !debug.destroyed;
 	#end
 
 
@@ -467,6 +520,10 @@ class Runner {
 			}
 		}
 
+		// Consts
+		for(c in consts)
+			checker.setGlobal(c.name, c.ttype);
+
 		// Internal keywords
 		var globals = checker.getGlobals();
 		for(k in internalKeywords)
@@ -567,6 +624,10 @@ class Runner {
 				interp.variables.set(c, e.createByName(c));
 		}
 
+
+		// Consts
+		for(c in consts)
+			interp.variables.set(c.name, c.value);
 
 		// Bind internal keyword references to instances
 		for(k in internalKeywords)

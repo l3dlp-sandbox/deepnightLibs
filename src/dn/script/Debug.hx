@@ -27,9 +27,12 @@ class Debug extends dn.Process {
 	var font : h2d.Font;
 	var wrapper : h2d.Flow;
 	var header : h2d.Flow;
+
 	var errorFlow : h2d.Flow;
 	var scriptFlow : h2d.Flow;
 	var typesFlow : h2d.Flow;
+	var globalsFlow : h2d.Flow;
+
 	var timerTf : h2d.Text;
 	var outputTf : h2d.Text;
 	var originTf : h2d.Text;
@@ -70,7 +73,12 @@ class Debug extends dn.Process {
 
 		originTf = createText(runner.origin, White, header);
 
-		var closeBt = createButton("x", destroy, header);
+		var closeBt = createButton("x", ()->{
+			if( destroyed )
+				return;
+			onClose();
+			destroy();
+		}, header);
 		header.getProperties(closeBt).horizontalAlign = Right;
 
 		errorFlow = new h2d.Flow(wrapper);
@@ -82,7 +90,10 @@ class Debug extends dn.Process {
 		typesFlow = new h2d.Flow(wrapper);
 		typesFlow.layout = Vertical;
 
-		render();
+		globalsFlow = new h2d.Flow(wrapper);
+		globalsFlow.layout = Vertical;
+
+		renderAll();
 	}
 
 	/** Replace this and return TRUE when the Debug panel should self-destroy (eg. if some attached context is lost)**/
@@ -103,9 +114,12 @@ class Debug extends dn.Process {
 	inline function isAsync() return runner is dn.script.AsyncRunner;
 	inline function asAsync() return Std.downcast(runner, dn.script.AsyncRunner);
 
-	function render() {
+	function renderAll() {
+		renderError();
 		renderScript();
 		renderTypes();
+		renderGlobals();
+
 		updateTimer();
 	}
 
@@ -130,9 +144,9 @@ class Debug extends dn.Process {
 				createCopyButton(runner.lastException.stack.toString(), p);
 				createText(runner.lastException.toString(), Red, p);
 				if( runner.lastScriptError!=null && runner.lastScriptError.line>=0 )
-					createScript(runner.lastScriptError.scriptStr, Orange, p);
+					createScript(runner.lastScriptError.scriptStr, p);
 				else
-					createText(runner.lastException.stack.toString(), Orange, p);
+					createText(runner.lastException.stack.toString(), p);
 			}, errorFlow);
 		}
 	}
@@ -145,7 +159,7 @@ class Debug extends dn.Process {
 			if( runner.lastScriptStr==null )
 				return;
 
-			createScript(runner.lastScriptStr, White, p);
+			createScript(runner.lastScriptStr, p);
 		}, scriptFlow);
 
 		// Converted script expr
@@ -168,7 +182,8 @@ class Debug extends dn.Process {
 	}
 
 
-	function createScript(script:String, col:Col, p:h2d.Flow) {
+	function createScript(script:String, p:h2d.Flow) {
+		var col : Col = White;
 		var raw = script;
 		raw = StringTools.replace(raw, "\t", "   ");
 		raw = StringTools.replace(raw, "\r", "");
@@ -205,40 +220,77 @@ class Debug extends dn.Process {
 					createText(v.desc, v.col, p);
 			}, typesFlow);
 		}
+	}
 
-		// Globals
-		var k = "Globals";
-		createCollapsable(k, (p)->{
-			var all = [];
 
-			@:privateAccess
-			for( g in runner.checker.getGlobals().keyValueIterator() ) {
-				if( runner.isKeyword(g.key) ) {
-					// Keyword
-					all.push({
-						desc: switch g.value {
-							case TFun(args, ret): '< ${g.key}(...) >';
-							case _: '< ${g.key} : ${g.value} >';
-						},
-						col: Col.coldMidGray(),
-					});
-				}
-				else {
-					// User-defined global
-					all.push({
-						desc: getDescFromTType(g.key, g.value),
-						col: getColorFromTType(g.value),
-					});
-				}
+	function renderGlobals() {
+		globalsFlow.removeChildren();
+
+		function isFunction(ttype:hscript.Checker.TType) : Bool {
+			return switch ttype {
+				case TFun(_): true;
+				case _: false;
 			}
+		}
 
-			all.sort((a,b)->Reflect.compare(a.desc.toLowerCase(), b.desc.toLowerCase()));
+		// Keywords & consts
+		var k = "Keywords & consts";
+		createCollapsable(k, (p)->{
+			var all = getGlobals( (n,t)->runner.hasConst(n) || runner.isKeyword(n) );
 			for(g in all)
 				createText(g.desc, g.col, p);
-		}, typesFlow);
+		}, globalsFlow);
+
+		// Globals values
+		var k = "Globals values";
+		createCollapsable(k, (p)->{
+			var all = getGlobals( (n,t)->!runner.hasConst(n) && !runner.isKeyword(n) && !isFunction(t) );
+			for(g in all)
+				createText(g.desc, g.col, p);
+		}, globalsFlow);
+
+		// Globals functions
+		var k = "Globals functions";
+		createCollapsable(k, (p)->{
+			var all = getGlobals( (n,t)->isFunction(t) && !runner.isKeyword(n) );
+			for(g in all)
+				createText(g.desc, g.col, p);
+		}, globalsFlow);
 
 		emitResizeAtEndOfFrame();
 	}
+
+	function getGlobals(?filter:(name:String,ttype:hscript.Checker.TType)->Bool) {
+		var all = [];
+
+		@:privateAccess
+		for( g in runner.checker.getGlobals().keyValueIterator() ) {
+			if( filter!=null && !filter(g.key, g.value) )
+				continue;
+
+			if( runner.isKeyword(g.key) ) {
+				// Keyword
+				all.push({
+					desc: switch g.value {
+						case TFun(args, ret): '< ${g.key}(...) >';
+						case _: '< ${g.key} : ${g.value} >';
+					},
+					col: Col.coldMidGray(),
+				});
+			}
+			else {
+				// User-defined global
+				all.push({
+					desc: getDescFromTType(g.key, g.value),
+					col: getColorFromTType(g.key, g.value),
+				});
+			}
+		}
+
+		all.sort((a,b)->Reflect.compare(a.desc.toLowerCase(), b.desc.toLowerCase()));
+		return all;
+	}
+
 
 	function createCollapsable(label:String, ?subLabel:String, col:Col=0, forceOpen=false, renderContent:h2d.Flow->Void, ?onHide:Void->Void, p:h2d.Flow) {
 		var id = label;
@@ -352,7 +404,8 @@ class Debug extends dn.Process {
 	function getDescFromTType(name:String, ttype:hscript.Checker.TType) : String {
 		return switch ttype {
 			case TInt, TFloat, TBool:
-				var out = 'var $name : ${ttype.getName()}';
+				var varType = runner.hasConst(name) ? "const" : "var";
+				var out = '$varType $name : ${ttype.getName()}';
 				@:privateAccess if( runner.interp.variables.exists(name) ) {
 					out += ' = ' + runner.interp.variables.get(name);
 
@@ -373,25 +426,27 @@ class Debug extends dn.Process {
 		}
 	}
 
-	function getColorFromTType(ttype:hscript.Checker.TType) : Col {
-		return switch ttype {
-			case TInt, TFloat, TBool: White;
-			case TEnum(e, args): Pink;
-			case TInst(_): Yellow;
-			case TUnresolved(_): Red;
-			case TDynamic: Orange;
+	function getColorFromTType(name:String, ttype:hscript.Checker.TType) : Col {
+		return runner.hasConst(name)
+			? ColdLightGray
+			: switch ttype {
+				case TInt, TFloat, TBool: White;
+				case TEnum(e, args): Pink;
+				case TInst(_): Yellow;
+				case TUnresolved(_): Red;
+				case TDynamic: Orange;
 
-			case TFun(args, ret):
-				var col = Cyan;
-				for(a in args)
-					switch a.t {
-						case TUnresolved(name): col = Red; // override color for unresolved args
-						case _:
-					}
-				col;
+				case TFun(args, ret):
+					var col = Cyan;
+					for(a in args)
+						switch a.t {
+							case TUnresolved(name): col = Red; // override color for unresolved args
+							case _:
+						}
+					col;
 
-			case _: Red; // Unknown type
-		}
+				case _: Red; // Unknown type
+			}
 	}
 
 
@@ -430,7 +485,7 @@ class Debug extends dn.Process {
 			for( f in runner.checker.getFields( runner.checker.types.resolve(name) ) )
 				t.values.push({
 					desc: getDescFromTType(f.name, f.t),
-					col: getColorFromTType(f.t),
+					col: getColorFromTType(f.name, f.t),
 				});
 
 			t.values.sort((a,b)->Reflect.compare(a.desc.toLowerCase(), b.desc.toLowerCase()));
@@ -439,6 +494,9 @@ class Debug extends dn.Process {
 		return allTypes;
 	}
 
+
+
+	public dynamic function onClose() {}
 
 
 	override function onResize() {
@@ -495,17 +553,13 @@ class Debug extends dn.Process {
 		// Start a new script
 		if( lastRunUid!=runner.lastRunUid ) {
 			lastRunUid = runner.lastRunUid;
-			renderError();
-			renderScript();
-			renderTypes();
+			renderAll();
 		}
 
 		// Error
 		if( runner.lastException!=null && lastErrorUid!=runner.lastRunUid ) {
 			lastErrorUid = runner.lastRunUid;
-			renderError();
-			renderScript();
-			renderTypes();
+			renderAll();
 		}
 	}
 }

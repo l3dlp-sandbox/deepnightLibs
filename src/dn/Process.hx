@@ -28,6 +28,7 @@ class Process {
 	/** If TRUE, each Process.onResize() will be called *once* at the end of the frame **/
 	static var RESIZE_REQUESTED = true;
 
+	public var creationTimeStamp(default,null) : Float;
 	public var uniqId : Int;
 	/** Elapsed frames from the client start **/
 	public var ftime(default, null) : Float; // elapsed frames
@@ -115,6 +116,7 @@ class Process {
 		else
 			parent.addChild(this);
 
+		creationTimeStamp = haxe.Timer.stamp();
 		emitResizeAtEndOfFrame();
 	}
 
@@ -212,6 +214,29 @@ class Process {
 		for( p in ROOTS )
 			all.push( p.rprintChildren() );
 		return all.join("\n");
+	}
+
+
+	function rprintChildrenToArray() : Array<{ str:String, p:dn.Process }> {
+
+		function _crawl(p:dn.Process, depth=0) {
+			var out = [];
+			var indent = depth>0 ? " |--- " : "";
+			indent = dn.Lib.repeatChar(" ",6*(depth-1)) + indent;
+			out.push({ str:indent + p.toString(), p:p });
+			for( cp in p.children )
+				out = out.concat( _crawl(cp, depth+1) );
+			return out;
+		}
+
+		return _crawl(this);
+	}
+
+	public static function rprintAllToArray() : Array<{ str:String, p:dn.Process }> {
+		var all = [];
+		for( p in ROOTS )
+			all = all.concat( p.rprintChildrenToArray() );
+		return all;
 	}
 
 
