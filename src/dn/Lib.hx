@@ -176,7 +176,7 @@ class Lib {
 		return str;
 	}
 
-	/** Add `padChar` at the end of given String to ensure its length is at least `minLen` **/
+	/** Add `padChar` at the beginning and at the end of given String to ensure its length is at least `minLen` **/
 	public static inline function padCenter(str:String, minLen:Int, padChar=" ") {
 		var side = true;
 		while( str.length<minLen ) {
