@@ -90,6 +90,13 @@ class Lib {
 		return r.replace(str, "$1\\"+escapedChar);
 	}
 
+	public static inline function repeatChar(c:String, n:Int) {
+		var out = "";
+		for(i in 0...n)
+			out+=c;
+		return out;
+	}
+
 
 	#if !macro
 
@@ -134,14 +141,6 @@ class Lib {
 			return str;
 		}
 	}
-
-	public static inline function repeatChar(c:String, n:Int) {
-		var out = "";
-		for(i in 0...n)
-			out+=c;
-		return out;
-	}
-
 
 	public static function intToRoman(n:Int) : String {
 		if( n==0 )
