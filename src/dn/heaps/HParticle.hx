@@ -37,6 +37,7 @@ class HParticle extends BatchElement {
 	public var gy				: Float;
 	public var bounceMul		: Float;
 	public var bounds			: Null<h2d.col.Bounds>;
+	public var boundsPadding	: Float;
 	public var groundY			: Null<Float>;
 	public var groupId			: Null<String>;
 	public var fadeOutSpeed		: Float;
@@ -317,6 +318,7 @@ class HParticle extends BatchElement {
 		delayS = 0;
 		lifeS = 1;
 		bounds = DEFAULT_BOUNDS;
+		boundsPadding = 0;
 		killOnLifeOut = false;
 		groundY = null;
 		groupId = null;
@@ -755,7 +757,7 @@ class HParticle extends BatchElement {
 
 
 					// Check bounds
-					if( bounds!=null && !( x>=bounds.xMin && x<bounds.xMax && y>=bounds.yMin && y<bounds.yMax ) ) {
+					if( bounds!=null && !( x>=bounds.xMin+boundsPadding && x<bounds.xMax-boundsPadding && y>=bounds.yMin+boundsPadding && y<bounds.yMax-boundsPadding ) ) {
 						if( onLeaveBounds!=null )
 							onLeaveBounds(this);
 						kill();
