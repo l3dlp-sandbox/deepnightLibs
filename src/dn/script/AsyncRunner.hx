@@ -592,6 +592,7 @@ class AsyncRunner extends dn.script.Runner {
 					}
 
 
+				// case ECast(_):
 				case ECall(_):
 				case EParent(e):
 				case EField(e, f):
