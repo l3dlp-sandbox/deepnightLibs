@@ -58,35 +58,40 @@ class Palette {
 		return pal;
 	}
 
+
 	/**
 		Read a palette from an image pixels
 	**/
-	public static function fromPixelsRect(pixels:hxd.Pixels, x:Int, y:Int, wid:Int, hei:Int, eachColorSizePx=1, allowDuplicates=false) : Palette {
-		x = M.iclamp(x, 0, pixels.width);
-		y = M.iclamp(y, 0, pixels.height);
-		wid = M.iclamp(wid, 0, pixels.width - x);
-		hei = M.iclamp(hei, 0, pixels.height - y);
+	public static function fromPixelsRect(pixels:hxd.Pixels, fromX:Int, fromY:Int, wid:Int, hei:Int, eachColorSizePx=1, allowDuplicates=false) : Palette {
+		fromX = M.iclamp(fromX, 0, pixels.width-1);
+		fromY = M.iclamp(fromY, 0, pixels.height-1);
+		wid = M.iclamp(wid, 0, pixels.width - fromX);
+		hei = M.iclamp(hei, 0, pixels.height - fromY);
 
 		if( wid==0 || hei==0 )
 			return new Palette();
 
 		var pal = new Palette();
 		var knowns = new Map();
-		while( y<hei ) {
-			var c = new Col( pixels.getPixel(x,y) ).withoutAlpha();
+		var offX = 0;
+		var offY = 0;
+		while( offY<hei ) {
+			var c = new Col( pixels.getPixel(fromX+offX, fromY+offY) ).withoutAlpha();
 			if( allowDuplicates || !knowns.exists(c) ) {
 				pal.addColor(c);
 				if( !allowDuplicates )
 					knowns.set(c,true);
 			}
-			x+=eachColorSizePx;
-			if( x>=wid ) {
-				x = 0;
-				y+=eachColorSizePx;
+
+			offX+=eachColorSizePx;
+			if( offX>=wid ) {
+				offX = 0;
+				offY += eachColorSizePx;
 			}
 		}
 		return pal;
 	}
+
 
 	/** Read palette from an Aseprite image **/
 	#if heaps_aseprite
