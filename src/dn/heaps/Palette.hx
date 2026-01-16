@@ -1,10 +1,13 @@
 package dn.heaps;
 
 class Palette {
-	var colors : Array<Col> = [];
+	public var colors(get,never) : haxe.ds.ReadOnlyArray<Col>;
+		inline function get_colors() return internalColors;
+
+	var internalColors : Array<Col> = [];
 	var _cachedClosests : Map<Int,Col> = new Map();
 
-	public var length(get,never) : Int; inline function get_length() return colors.length;
+	public var length(get,never) : Int; inline function get_length() return internalColors.length;
 
 	public var black(get,never): Col;		inline function get_black() return getClosest("#0");
 	public var darkGray(get,never): Col;	inline function get_darkGray() return getClosest("#5");
@@ -29,7 +32,7 @@ class Palette {
 
 	public inline function new() {}
 
-	public inline function iterator() return colors.iterator();
+	public inline function iterator() return internalColors.iterator();
 
 	/**
 		Read a palette from an image pixels
@@ -68,8 +71,6 @@ class Palette {
 			return new Palette();
 
 		var pal = new Palette();
-		var x = 0;
-		var y = 0;
 		var knowns = new Map();
 		while( y<hei ) {
 			var c = new Col( pixels.getPixel(x,y) ).withoutAlpha();
@@ -108,26 +109,26 @@ class Palette {
 	}
 
 	public inline function addColor(c:Col) {
-		colors.push(c);
+		internalColors.push(c);
 		clearCache();
 	}
 
 	public inline function removeColor(c:Col) {
-		colors.remove(c);
+		internalColors.remove(c);
 		clearCache();
 	}
 
 	public inline function empty() {
-		colors = [];
+		internalColors = [];
 		clearCache();
 	}
 
 	@:keep
 	public inline function toString() {
-		return 'Palette(${colors.length}): ${colors.map(c->c.toString()).join(",")}';
+		return 'Palette(${internalColors.length}): ${internalColors.map(c->c.toString()).join(",")}';
 	}
 
-	/** Render current palette colors **/
+	/** Render current palette internalColors **/
 	public function render(colSizePx=8, ?parent:h2d.Object) : h2d.Flow {
 		var f = new h2d.Flow(parent);
 		f.layout = Horizontal;
@@ -138,12 +139,12 @@ class Palette {
 			bmp.setScale(colSizePx);
 		}
 
-		for( c in colors )
+		for( c in internalColors )
 			_renderColor(c, f);
 		return f;
 	}
 
-	/** Render palette preset colors **/
+	/** Render palette preset internalColors **/
 	public function renderPresets(colSizePx=8, ?parent:h2d.Object) : h2d.Flow {
 		var f = new h2d.Flow(parent);
 		f.layout = Horizontal;
@@ -190,7 +191,7 @@ class Palette {
 			var best : Col = 0x0;
 			var bestDist = 99.;
 			var dist = 0.;
-			for(c in colors) {
+			for(c in internalColors) {
 				dist = useLab ? target.getDistanceLab(c) : target.getDistanceRgb(c);
 				if( dist<bestDist ) {
 					bestDist = dist;
