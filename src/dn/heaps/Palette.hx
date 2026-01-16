@@ -55,6 +55,38 @@ class Palette {
 		return pal;
 	}
 
+	/**
+		Read a palette from an image pixels
+	**/
+	public static function fromPixelsRect(pixels:hxd.Pixels, x:Int, y:Int, wid:Int, hei:Int, eachColorSizePx=1, allowDuplicates=false) : Palette {
+		x = M.iclamp(x, 0, pixels.width);
+		y = M.iclamp(y, 0, pixels.height);
+		wid = M.iclamp(wid, 0, pixels.width - x);
+		hei = M.iclamp(hei, 0, pixels.height - y);
+
+		if( wid==0 || hei==0 )
+			return new Palette();
+
+		var pal = new Palette();
+		var x = 0;
+		var y = 0;
+		var knowns = new Map();
+		while( y<hei ) {
+			var c = new Col( pixels.getPixel(x,y) ).withoutAlpha();
+			if( allowDuplicates || !knowns.exists(c) ) {
+				pal.addColor(c);
+				if( !allowDuplicates )
+					knowns.set(c,true);
+			}
+			x+=eachColorSizePx;
+			if( x>=wid ) {
+				x = 0;
+				y+=eachColorSizePx;
+			}
+		}
+		return pal;
+	}
+
 	/** Read palette from an Aseprite image **/
 	#if heaps_aseprite
 	public static function fromAseprite(ase:aseprite.Aseprite) : Palette {
