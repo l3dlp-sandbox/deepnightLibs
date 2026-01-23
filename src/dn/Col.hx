@@ -61,7 +61,7 @@ abstract Col(Int) from Int to Int {
 
 
 	/** Create a gray Col from a single float value (0.0 = black  =>  0.5 = mid gray =>  1.0 = white)  **/
-	@:from public static inline function gray(v:Float) : Col {
+	public static inline function gray(v:Float) : Col {
 		return fromRGBf(v,v,v);
 	}
 
@@ -117,6 +117,10 @@ abstract Col(Int) from Int to Int {
 
 	public static inline function fromInt(c:Int) : Col {
 		return new Col(c);
+	}
+
+	public static inline function fromFloat(c:Float) : Col {
+		return new Col( Std.int(c) );
 	}
 
 	/** Create a color from RGB (0-255) values **/
