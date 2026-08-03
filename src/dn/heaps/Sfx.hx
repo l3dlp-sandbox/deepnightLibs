@@ -266,12 +266,16 @@ class Sfx {
 	// Play sound resource, returns TRUE if successful
 	function playSoundRes(loop:Bool, volume:Float, group:SoundGroup) : Bool {
 		var chan = try soundRes.play(loop, volume, group) catch(err:Dynamic) {
-			trace(err);
+			onError('Cannot play $filePath: $err');
 			return false;
 		}
 		if( chan!=null )
 			onStartPlaying(chan);
 		return true;
+	}
+
+	public dynamic function onError(err:String) {
+		trace(err);
 	}
 
 
