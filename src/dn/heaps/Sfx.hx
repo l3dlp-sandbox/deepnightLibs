@@ -258,8 +258,20 @@ class Sfx {
 		if( SOUND_DEFAULT_GROUPS.exists(soundUid) )
 			groupId = SOUND_DEFAULT_GROUPS.get(soundUid);
 
-		onStartPlaying( soundRes.play(loop, volume, getGlobalGroup(groupId).soundGroup) );
+		playSoundRes(loop, volume, getGlobalGroup(groupId).soundGroup);
 		return this;
+	}
+
+
+	// Play sound resource, returns TRUE if successful
+	function playSoundRes(loop:Bool, volume:Float, group:SoundGroup) : Bool {
+		var chan = try soundRes.play(loop, volume, group) catch(err:Dynamic) {
+			trace(err);
+			return false;
+		}
+		if( chan!=null )
+			onStartPlaying(chan);
+		return true;
 	}
 
 
@@ -282,8 +294,9 @@ class Sfx {
 		if( isCurrentlyPlaying() )
 			stop();
 
-		onStartPlaying(  soundRes.play(false, volume, getGlobalGroup(groupId).soundGroup) );
-		setSpatialPos(x,y);
+		if( playSoundRes(false, volume, getGlobalGroup(groupId).soundGroup) )
+			setSpatialPos(x,y);
+
 		return this;
 	}
 
