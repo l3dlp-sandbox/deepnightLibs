@@ -207,23 +207,27 @@ class GetText {
 
 
 	public inline function get(msgId:String, ?vars:Dynamic) : LocaleString {
-		// Strip notes from msgid (but keep Disambiguation Context)
-		msgId = TRANSLATOR_NOTE_REG.replace(msgId,"$3");
-		msgId = COMMENT_REG.replace(msgId,"$3");
+		if( msgId==null )
+			return null;
+		else {
+			// Strip notes from msgid (but keep Disambiguation Context)
+			msgId = TRANSLATOR_NOTE_REG.replace(msgId,"$3");
+			msgId = COMMENT_REG.replace(msgId,"$3");
 
-		var str = dict.exists(msgId) && dict.get(msgId)!="" ? dict.get(msgId) : msgId;
+			var str = dict.exists(msgId) && dict.get(msgId)!="" ? dict.get(msgId) : msgId;
 
-		// In-text variables
-		if( vars!=null )
-			for(k in Reflect.fields(vars))
-				str = StringTools.replace(str, '::$k::', Std.string( Reflect.field(vars,k) ));
+			// In-text variables
+			if( vars!=null )
+				for(k in Reflect.fields(vars))
+					str = StringTools.replace(str, '::$k::', Std.string( Reflect.field(vars,k) ));
 
-		// Strip notes from output
-		str = TRANSLATOR_NOTE_REG.replace(str,"$3");
-		str = COMMENT_REG.replace(str,"$3");
-		str = CONTEXT_DISAMB_REG.replace(str,"$3");
+			// Strip notes from output
+			str = TRANSLATOR_NOTE_REG.replace(str,"$3");
+			str = COMMENT_REG.replace(str,"$3");
+			str = CONTEXT_DISAMB_REG.replace(str,"$3");
 
-		return untranslated(str);
+			return untranslated(str);
+		}
 	}
 
 
