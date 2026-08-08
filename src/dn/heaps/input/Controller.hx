@@ -391,7 +391,6 @@ class Controller<T:Int> {
 		storeBinding(yAction, b);
 	}
 
-
 	public inline function bindPadLStick4(left:T, right:T, up:T, down:T) {
 		bindPad( left, LSTICK_LEFT );
 		bindPad( right, LSTICK_RIGHT );
@@ -399,12 +398,20 @@ class Controller<T:Int> {
 		bindPad( down, LSTICK_DOWN );
 	}
 
+
 	public inline function bindPadRStickXY(xAction:T, yAction:T, invertX=false, invertY=false) {
 		var b = InputBinding.createPadStickAxis(this, xAction, 1, true, invertX);
 		storeBinding(xAction, b);
 
 		var b = InputBinding.createPadStickAxis(this, yAction, 1, false, invertY);
 		storeBinding(yAction, b);
+	}
+
+	public inline function bindPadRStick4(left:T, right:T, up:T, down:T) {
+		bindPad( left, RSTICK_LEFT );
+		bindPad( right, RSTICK_RIGHT );
+		bindPad( up, RSTICK_UP );
+		bindPad( down, RSTICK_DOWN );
 	}
 
 
