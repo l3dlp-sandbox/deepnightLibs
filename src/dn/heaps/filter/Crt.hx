@@ -1,6 +1,15 @@
 package dn.heaps.filter;
 
 class Crt extends h2d.filter.Shader<InternalShader> {
+	/** Distance between scanlines **/
+	public var scanlineDist(default,set) : Int;
+
+	/** If not NULL, this method automatically updates scanline distance based on dynamic criterions (eg. adapt to window resizing). If not NULL, this completely overrides the var scanlinesDist. **/
+	public var getAutoUpdatedScanlinesDist: Null< Void->Int > = null;
+
+	/** Thickness of individual scanlines **/
+	public var scanlineThick(default,set) : Int;
+
 	/** Scanline texture color (RGB format, defaults to 0xffffff) **/
 	public var scanlineColor(default,set) : Col;
 
@@ -15,9 +24,6 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 
 	/** Dark vignetting intensity (0-1), defaults to 0.5 **/
 	public var vignetting(default,set) : Float;
-
-	/** Height of the scanlines **/
-	public var scanlineSize(default,set) : Int;
 
 	/** Bloom intensity (0-1), defaults to 0 **/
 	public var bloomIntensity(default,set) : Float;
@@ -37,19 +43,14 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 	/** Small blur radius in pixels, defaults to 1 **/
 	public var blurRadius(default,set) : Float;
 
-	/** Set this method to automatically update scanline size based on your own criterions. It should return the new scanline size. **/
-	public var autoUpdateSize: Null< Void->Int > = null;
-
 	var scanlineTex : h3d.mat.Texture;
 	var invalidated = true;
 
-	/**
-		@param scanlineSize Height of the scanline overlay texture blocks
-	**/
-	public function new(scanlineSize=2, scanlineColor:Col=0xffffff, alpha=1.0) {
+	public function new(scanlineDist=2, scanlineColor:Col=0xffffff, alpha=1.0) {
 		super( new InternalShader() );
 		this.scanlineAlpha = alpha;
-		this.scanlineSize = scanlineSize;
+		this.scanlineDist = scanlineDist;
+		scanlineThick = 1;
 		this.scanlineColor = scanlineColor;
 		curvatureH = 0.5;
 		curvatureV = 0.5;
@@ -118,10 +119,23 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 		return blurRadius = v;
 	}
 
-	inline function set_scanlineSize(v) {
-		if( scanlineSize!=v )
+
+	@:deprecated("Use scanlineDist instead") @:noCompletion
+	public var scanlineSize(get,set) : Int;
+	inline function get_scanlineSize() return scanlineDist;
+	inline function set_scanlineSize(v) return scanlineDist = v;
+
+	inline function set_scanlineDist(v) {
+		if( scanlineDist!=v )
 			invalidate();
-		return scanlineSize = v;
+		return scanlineDist = M.imax(2,v);
+	}
+
+
+	inline function set_scanlineThick(v) {
+		if( scanlineThick!=v )
+			invalidate();
+		return scanlineThick = M.imax(1,v);
 	}
 
 	inline function set_scanlineColor(v) {
@@ -144,8 +158,8 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 			initTexture(ctx.scene.width, ctx.scene.height);
 		}
 
-		if( autoUpdateSize!=null && scanlineSize!=autoUpdateSize() ) {
-			scanlineSize = autoUpdateSize();
+		if( getAutoUpdatedScanlinesDist!=null && scanlineDist!=getAutoUpdatedScanlinesDist() ) {
+			scanlineDist = getAutoUpdatedScanlinesDist();
 			// The invalidation re-render will only occur during next frame, to make sure scene width/height is properly set
 		}
 	}
@@ -157,10 +171,11 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 
 		// Init texture
 		final neutral = 0xFF808080;
-		var bd = new hxd.BitmapData(scanlineSize,scanlineSize);
+		var bd = new hxd.BitmapData(scanlineDist,scanlineDist);
 		bd.clear(neutral);
+		for(y in 0...scanlineThick)
 		for(x in 0...bd.width)
-			bd.setPixel(x, 0, scanlineColor);
+			bd.setPixel(x, y, scanlineColor);
 
 		scanlineTex = h3d.mat.Texture.fromBitmap(bd);
 		scanlineTex.filter = Nearest;
