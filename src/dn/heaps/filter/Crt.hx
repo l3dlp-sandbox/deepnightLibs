@@ -1,5 +1,10 @@
 package dn.heaps.filter;
 
+
+/**
+	IMPORTANT NOTE: this filter should only be attached to untransformed objects at (0,0) coordinates (eg. Scene, or an Object acting like a scene)
+**/
+
 class Crt extends h2d.filter.Shader<InternalShader> {
 	/** Distance between scanlines **/
 	public var scanlineDist(default,set) : Int;
@@ -19,7 +24,7 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 	/** Horizontal screen distorsion intensity (0-1), defaults to 0.5 **/
 	public var curvatureH(default,set) : Float;
 
-	/** Verticval screen distorsion intensity (0-1), defaults to 0.5 **/
+	/** Vertical screen distorsion intensity (0-1), defaults to 0.5 **/
 	public var curvatureV(default,set) : Float;
 
 	/** Dark vignetting intensity (0-1), defaults to 0.5 **/
@@ -48,17 +53,25 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 
 	public function new(scanlineDist=2, scanlineColor:Col=0xffffff, alpha=1.0) {
 		super( new InternalShader() );
+
+		autoBounds = false;
+		boundsExtend = 0;
+
 		this.scanlineAlpha = alpha;
 		this.scanlineDist = scanlineDist;
 		scanlineThick = 1;
 		this.scanlineColor = scanlineColor;
+
 		curvatureH = 0.5;
 		curvatureV = 0.5;
 		vignetting = 0.5;
+
 		bloomIntensity = 0;
 		bloomThreshold = 0.75;
 		bloomRadius = 2;
+
 		chromaticAberration = 0;
+
 		blurIntensity = 0;
 		blurRadius = 1;
 	}
@@ -69,13 +82,13 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 	}
 
 	inline function set_curvatureH(v:Float) {
-		curvatureH = v;
-		return shader.curvature.y = v<=0 ?  99  :  2 + (1-v) * 10;
+		curvatureH = M.fclamp(v, 0, 1);
+		return shader.curvature.y = curvatureH<=0 ? 99 : 2 + (1-curvatureH) * 10;
 	}
 
 	inline function set_curvatureV(v:Float) {
-		curvatureV = v;
-		return shader.curvature.x = v<=0 ?  99  :  2 + (1-v) * 10;
+		curvatureV = M.fclamp(v, 0, 1);
+		return shader.curvature.x = curvatureV<=0 ? 99 : 2 + (1-curvatureV) * 10;
 	}
 
 	inline function set_vignetting(v:Float) {
@@ -126,9 +139,10 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 	inline function set_scanlineSize(v) return scanlineDist = v;
 
 	inline function set_scanlineDist(v) {
+		v = M.imax(2, v);
 		if( scanlineDist!=v )
 			invalidateScanlineTex();
-		return scanlineDist = M.imax(2,v);
+		return scanlineDist = v;
 	}
 
 
@@ -144,28 +158,29 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 		return scanlineColor = v;
 	}
 
-	inline function set_scanlineAlpha(v:Float) return shader.alpha = v;
+	inline function set_scanlineAlpha(v:Float) return shader.alpha = M.fclamp(v, 0, 1);
 	inline function get_scanlineAlpha() return shader.alpha;
+
+	override function getBounds(s:h2d.Object, bounds:h2d.col.Bounds, scale:h2d.col.Point) {
+		var sc = s.getScene();
+
+		if( sc==null )
+			super.getBounds(s, bounds, scale);
+		else
+			bounds.set(0, 0, sc.width, sc.height);
+	}
 
 	override function sync(ctx:h2d.RenderContext, s:h2d.Object) {
 		super.sync(ctx, s);
 
-		var filterWid : Int;
-		var filterHei : Int;
-		if( Std.isOfType(s, h2d.Scene) ) {
-			// Filter is attached to the Scene
-			filterWid = ctx.scene.width;
-			filterHei = ctx.scene.height;
-		}
-		else {
-			// Filter is attached to an Object
-			var bounds = s.getBounds();
-			filterWid = Math.ceil(bounds.width);
-			filterHei = Math.ceil(bounds.height);
-		}
+		final screenWid = ctx.scene.width;
+		final screenHei = ctx.scene.height;
 
-		if( filterWid<=0 || filterHei<=0 )
+		if( screenWid<=0 || screenHei<=0 )
 			return;
+
+		if( getAutoUpdatedScanlinesDist!=null && scanlineDist!=getAutoUpdatedScanlinesDist() )
+			scanlineDist = getAutoUpdatedScanlinesDist();
 
 		// Refresh scanline texture
 		if( scanlineTexInvalidated ) {
@@ -179,7 +194,8 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 			final neutral = 0xFF808080;
 			var bd = new hxd.BitmapData(scanlineDist,scanlineDist);
 			bd.clear(neutral);
-			for(y in 0...scanlineThick)
+
+			for(y in 0...M.imin(scanlineThick, bd.height))
 			for(x in 0...bd.width)
 				bd.setPixel(x, y, scanlineColor);
 
@@ -189,12 +205,13 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 			shader.scanlineTex = scanlineTex;
 		}
 
-		shader.texelSize.set( 1/filterWid, 1/filterHei );
-		shader.scanlineScale = new hxsl.Types.Vec( ctx.scene.width/scanlineTex.width, ctx.scene.height/scanlineTex.height );
+		shader.screenSize.set(screenWid, screenHei);
+		shader.texelSize.set(1 / screenWid, 1 / screenHei);
 
-		// The invalidation re-render will only occur during next frame, to make sure scene width/height is properly set
-		if( getAutoUpdatedScanlinesDist!=null && scanlineDist!=getAutoUpdatedScanlinesDist() )
-			scanlineDist = getAutoUpdatedScanlinesDist();
+		shader.scanlineScale.set(
+			screenWid / scanlineTex.width,
+			screenHei / scanlineTex.height
+		);
 	}
 }
 
@@ -206,10 +223,12 @@ private class InternalShader extends h3d.shader.ScreenShader {
 	static var SRC = {
 		@param var texture : Sampler2D;
 
+		@param var screenSize : Vec2;
+		@param var texelSize : Vec2;
+
 		@param var curvature : Vec2;
 		@param var vignetting : Float;
 		@param var alpha : Float;
-		@param var texelSize : Vec2;
 
 		@param var scanlineTex : Sampler2D;
 		@param var scanlineScale : Vec2;
@@ -235,8 +254,7 @@ private class InternalShader extends h3d.shader.ScreenShader {
 			var offset = abs(out.yx) / curvature;
 			out = out + out * offset * offset;
 
-			out = out*0.5 + 0.5;
-			return out;
+			return out*0.5 + 0.5;
 		}
 
 		function vignette(uv:Vec2) : Float {
@@ -262,8 +280,11 @@ private class InternalShader extends h3d.shader.ScreenShader {
 		}
 
 		function fragment() {
+			var screenUv = input.uv;
+
 			// Distortion
-			var uv = curve( input.uv );
+			var uv = curve(screenUv);
+			var inside = inBounds(uv);
 
 			// Center sample
 			var center = safeGet(uv);
@@ -285,7 +306,7 @@ private class InternalShader extends h3d.shader.ScreenShader {
 			// RGB chromatic aberration
 			if( chromaticAberration>0. ) {
 				var ca = texelSize * chromaticAberration;
-				var caDir = normalize(input.uv*2 - 1 + vec2(0.0001));
+				var caDir = normalize(screenUv*2 - 1 + vec2(0.0001, 0.0001));
 
 				color.r = safeGet(uv + caDir * ca).r;
 				color.g = mix(color.g, center.g, 0.5);
@@ -305,20 +326,23 @@ private class InternalShader extends h3d.shader.ScreenShader {
 				color += bloom * bloomIntensity;
 			}
 
-			// Scanlines texture
-			var scanUv = input.uv * scanlineScale;
-			var scanlineColor = mix( vec4(0.5), scanlineTex.get(scanUv), alpha );
+			// Scanlines are screen-space locked
+			var scanlineColor = mix(
+				vec4(0.5),
+				scanlineTex.get(screenUv * scanlineScale),
+				alpha
+			);
+
 			pixelColor.rgba = vec4(
-				blendOverlay( color, scanlineColor.rgb ),
+				blendOverlay(color, scanlineColor.rgb),
 				center.a
 			);
 
 			// Vignetting
-			pixelColor.rgb *= 1 - vignetting * vignette(input.uv);
+			pixelColor.rgb *= 1.0 - vignetting * vignette(screenUv);
 
-			// Clear out-of-bounds pixels
-			pixelColor.rgba *= inBounds(uv);
+			// Clear warped pixels outside visible source texture
+			pixelColor.rgba *= inside;
 		}
-
 	};
 }
