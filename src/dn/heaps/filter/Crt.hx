@@ -150,21 +150,21 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 	override function sync(ctx:h2d.RenderContext, s:h2d.Object) {
 		super.sync(ctx, s);
 
-		var objWid : Int;
-		var objHei : Int;
+		var filterWid : Int;
+		var filterHei : Int;
 		if( Std.isOfType(s, h2d.Scene) ) {
 			// Filter is attached to the Scene
-			objWid = ctx.scene.width;
-			objHei = ctx.scene.height;
+			filterWid = ctx.scene.width;
+			filterHei = ctx.scene.height;
 		}
 		else {
 			// Filter is attached to an Object
 			var bounds = s.getBounds();
-			objWid = Math.ceil(bounds.width);
-			objHei = Math.ceil(bounds.height);
+			filterWid = Math.ceil(bounds.width);
+			filterHei = Math.ceil(bounds.height);
 		}
 
-		if( objWid<=0 || objHei<=0 )
+		if( filterWid<=0 || filterHei<=0 )
 			return;
 
 		// Refresh scanline texture
@@ -189,7 +189,7 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 			shader.scanlineTex = scanlineTex;
 		}
 
-		shader.texelSize.set( 1/objWid, 1/objHei );
+		shader.texelSize.set( 1/filterWid, 1/filterHei );
 		shader.scanlineScale = new hxsl.Types.Vec( ctx.scene.width/scanlineTex.width, ctx.scene.height/scanlineTex.height );
 
 		// The invalidation re-render will only occur during next frame, to make sure scene width/height is properly set
