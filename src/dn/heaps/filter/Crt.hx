@@ -44,7 +44,7 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 	public var blurRadius(default,set) : Float;
 
 	var scanlineTex : h3d.mat.Texture;
-	var invalidated = true;
+	var scanlineTexInvalidated = true;
 
 	public function new(scanlineDist=2, scanlineColor:Col=0xffffff, alpha=1.0) {
 		super( new InternalShader() );
@@ -64,8 +64,8 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 	}
 
 	/** Force re-creation of the overlay texture (not to be called often!) **/
-	inline function invalidate() {
-		invalidated = true;
+	inline function invalidateScanlineTex() {
+		scanlineTexInvalidated = true;
 	}
 
 	inline function set_curvatureH(v:Float) {
@@ -127,20 +127,20 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 
 	inline function set_scanlineDist(v) {
 		if( scanlineDist!=v )
-			invalidate();
+			invalidateScanlineTex();
 		return scanlineDist = M.imax(2,v);
 	}
 
 
 	inline function set_scanlineThick(v) {
 		if( scanlineThick!=v )
-			invalidate();
+			invalidateScanlineTex();
 		return scanlineThick = M.imax(1,v);
 	}
 
 	inline function set_scanlineColor(v) {
 		if( scanlineColor!=v )
-			invalidate();
+			invalidateScanlineTex();
 		return scanlineColor = v;
 	}
 
@@ -150,41 +150,51 @@ class Crt extends h2d.filter.Shader<InternalShader> {
 	override function sync(ctx:h2d.RenderContext, s:h2d.Object) {
 		super.sync(ctx, s);
 
-		if( !Std.isOfType(s, h2d.Scene) )
-			throw "CRT filter should only be attached to a 2D Scene";
-
-		if( invalidated ) {
-			invalidated = false;
-			initTexture(ctx.scene.width, ctx.scene.height);
+		var objWid : Int;
+		var objHei : Int;
+		if( Std.isOfType(s, h2d.Scene) ) {
+			// Filter is attached to the Scene
+			objWid = ctx.scene.width;
+			objHei = ctx.scene.height;
+		}
+		else {
+			// Filter is attached to an Object
+			var bounds = s.getBounds();
+			objWid = Math.ceil(bounds.width);
+			objHei = Math.ceil(bounds.height);
 		}
 
-		if( getAutoUpdatedScanlinesDist!=null && scanlineDist!=getAutoUpdatedScanlinesDist() ) {
+		if( objWid<=0 || objHei<=0 )
+			return;
+
+		// Refresh scanline texture
+		if( scanlineTexInvalidated ) {
+			scanlineTexInvalidated = false;
+
+			// Cleanup
+			if( scanlineTex!=null )
+				scanlineTex.dispose();
+
+			// Init scanlines texture
+			final neutral = 0xFF808080;
+			var bd = new hxd.BitmapData(scanlineDist,scanlineDist);
+			bd.clear(neutral);
+			for(y in 0...scanlineThick)
+			for(x in 0...bd.width)
+				bd.setPixel(x, y, scanlineColor);
+
+			scanlineTex = h3d.mat.Texture.fromBitmap(bd);
+			scanlineTex.filter = Nearest;
+			scanlineTex.wrap = Repeat;
+			shader.scanlineTex = scanlineTex;
+		}
+
+		shader.texelSize.set( 1/objWid, 1/objHei );
+		shader.scanlineScale = new hxsl.Types.Vec( ctx.scene.width/scanlineTex.width, ctx.scene.height/scanlineTex.height );
+
+		// The invalidation re-render will only occur during next frame, to make sure scene width/height is properly set
+		if( getAutoUpdatedScanlinesDist!=null && scanlineDist!=getAutoUpdatedScanlinesDist() )
 			scanlineDist = getAutoUpdatedScanlinesDist();
-			// The invalidation re-render will only occur during next frame, to make sure scene width/height is properly set
-		}
-	}
-
-	function initTexture(screenWid:Float, screenHei:Float) {
-		// Cleanup
-		if( scanlineTex!=null )
-			scanlineTex.dispose();
-
-		// Init texture
-		final neutral = 0xFF808080;
-		var bd = new hxd.BitmapData(scanlineDist,scanlineDist);
-		bd.clear(neutral);
-		for(y in 0...scanlineThick)
-		for(x in 0...bd.width)
-			bd.setPixel(x, y, scanlineColor);
-
-		scanlineTex = h3d.mat.Texture.fromBitmap(bd);
-		scanlineTex.filter = Nearest;
-		scanlineTex.wrap = Repeat;
-
-		// Update shader
-		shader.scanline = scanlineTex;
-		shader.texelSize.set( 1/screenWid, 1/screenHei );
-		shader.uvScale = new hxsl.Types.Vec( screenWid / scanlineTex.width, screenHei / scanlineTex.width );
 	}
 }
 
@@ -195,13 +205,14 @@ private class InternalShader extends h3d.shader.ScreenShader {
 
 	static var SRC = {
 		@param var texture : Sampler2D;
-		@param var scanline : Sampler2D;
 
 		@param var curvature : Vec2;
 		@param var vignetting : Float;
 		@param var alpha : Float;
-		@param var uvScale : Vec2;
 		@param var texelSize : Vec2;
+
+		@param var scanlineTex : Sampler2D;
+		@param var scanlineScale : Vec2;
 
 		@param var bloomIntensity : Float;
 		@param var bloomThreshold : Float;
@@ -295,7 +306,8 @@ private class InternalShader extends h3d.shader.ScreenShader {
 			}
 
 			// Scanlines texture
-			var scanlineColor = mix( vec4(0.5), scanline.get(input.uv*uvScale), alpha );
+			var scanUv = input.uv * scanlineScale;
+			var scanlineColor = mix( vec4(0.5), scanlineTex.get(scanUv), alpha );
 			pixelColor.rgba = vec4(
 				blendOverlay( color, scanlineColor.rgb ),
 				center.a
