@@ -519,7 +519,7 @@ class AnimManager {
 		if( condition==null )
 			condition = function() return true;
 
-		removeStateAnim(group, priority);
+		unregisterStateAnim(group, priority);
 		var s = new StateAnim(group, condition);
 		s.priority = priority;
 		s.spd = spd;
@@ -539,7 +539,10 @@ class AnimManager {
 			}
 	}
 
-	public function removeStateAnim(group:String, priority:Float) {
+	@:noCompletion @:deprecated("Use unregisterStateAnim() instead")
+	public function removeStateAnim(group:String, priority:Float) { unregisterStateAnim(group, priority); }
+
+	public function unregisterStateAnim(group:String, priority:Float) {
 		var i = 0;
 		while( i<stateAnims.length )
 			if( stateAnims[i].group==group && stateAnims[i].priority==priority )
@@ -548,7 +551,10 @@ class AnimManager {
 				i++;
 	}
 
-	public function removeAllStateAnims() {
+	@:noCompletion @:deprecated("Use unregisterAllStateAnims() instead")
+	public function removeAllStateAnims() { unregisterAllStateAnims(); }
+
+	public function unregisterAllStateAnims() {
 		stateAnims = [];
 		stopWithoutStateAnims();
 	}
