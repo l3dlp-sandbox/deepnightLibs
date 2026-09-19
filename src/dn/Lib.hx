@@ -457,18 +457,24 @@ class Lib {
 
 
 	/** Return a pretty time value "HHh MMm SSs" from a timestamp in milliseconds or a duration (trying to guess) **/
-	public static inline function prettyTime(t:Float) : String {
-		if( t<=DateTools.days(365) ) {
+	public static inline function prettyTimeMs(ms:Float) : String {
+		return prettyTimeS(ms/1000);
+	}
+
+
+	/** Return a pretty time value "HHh MMm SSs" from a timestamp in milliseconds or a duration (trying to guess) **/
+	public static function prettyTimeS(seconds:Float) : String {
+		if( seconds<=DateTools.days(365) ) {
 			// Duration
-			var s = M.fabs(t)/1000;
+			var s = M.fabs(seconds);
 			var m = s/60;
 			var h = m/60;
 			h = Std.int(h%24);
-			return (t<0?"-":"") + (h>0?h+"h ":"") + leadingZeros(Std.int(m%60))+"m "+leadingZeros(Std.int(s%60))+"s";
+			return (seconds<0?"-":"") + (h>0?h+"h ":"") + leadingZeros(Std.int(m%60))+"m "+leadingZeros(Std.int(s%60))+"s";
 		}
 		else {
 			// Probably really a timestamp
-			return DateTools.format(Date.fromTime(t), "%Hh %Mm %Ss (%Y-%m-%d)");
+			return DateTools.format(Date.fromTime(seconds*1000), "%Hh %Mm %Ss (%Y-%m-%d)");
 		}
 	}
 
