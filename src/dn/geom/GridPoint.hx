@@ -4,6 +4,7 @@ class GridPoint {
 	public var x : Int;
 	public var y : Int;
 
+
 	/** cx alias **/
 	public var cx(get,set) : Int;
 		inline function get_cx() return x;
@@ -13,6 +14,17 @@ class GridPoint {
 	public var cy(get,set) : Int;
 		inline function get_cy() return y;
 		inline function set_cy(v:Int) return y = v;
+
+
+	/** gx alias **/
+	public var gx(get,set) : Int;
+		inline function get_gx() return x;
+		inline function set_gx(v:Int) return x = v;
+
+	/** gy alias **/
+	public var gy(get,set) : Int;
+		inline function get_gy() return y;
+		inline function set_gy(v:Int) return y = v;
 
 
 	public inline function new(x,y) {
