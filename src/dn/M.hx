@@ -751,7 +751,7 @@ class M {
 	public static inline function distSegmentSqr(x:Float, y:Float, ax:Float, ay:Float, bx:Float, by:Float) {
 		// Source: https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
 		var l2 = distSqr(ax,ay, bx,by);
-		if( l2==0 )
+		if( l2<=0.000001 )
 			return distSqr(x,y, ax,ay);
 		var t = fclamp( ( (x-ax)*(bx-ax) + (y-ay)*(by-ay) ) / l2, 0, 1 );
 		return distSqr( x, y, ax+t*(bx-ax), ay+t*(by-ay) );
