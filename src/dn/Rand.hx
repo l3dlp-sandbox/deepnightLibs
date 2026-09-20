@@ -63,6 +63,10 @@ class Rand {
 		return ( min + random(max-min+1) ) * (randSign ? random(2)*2-1 : 1);
 	}
 
+	public inline function either<T>(a:T, b:T, pctChanceForA=0.5) : T {
+		return pctf(pctChanceForA) ? a : b;
+	}
+
 	public function getSeed() {
 		return Std.int(seed) - 131;
 	}
